@@ -42,7 +42,10 @@ async function loadWatchlist() {
     const container = document.getElementById("watchlist")
     container.innerHTML = ""
 
-    const filtered = showHistory ? list.filter((m) => m.watched) : list
+    // Show only unwatched in watchlist, only watched in history
+    const filtered = showHistory 
+      ? list.filter((m) => m.watched) 
+      : list.filter((m) => !m.watched)
 
     if (!filtered || filtered.length === 0) {
       container.innerHTML = showHistory
