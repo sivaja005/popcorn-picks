@@ -3,6 +3,10 @@ const token = localStorage.getItem("token")
 const urlParams = new URLSearchParams(window.location.search)
 const showHistory = urlParams.get("mode") === "history"
 
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000'
+  : 'https://popcorn-picks-backend.onrender.com'
+
 function requireAuth() {
   if (!token) {
     window.location.href = "login.html"
@@ -10,7 +14,8 @@ function requireAuth() {
 }
 
 async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options)
+  const fullUrl = url.startsWith('http') ? url : API_BASE_URL + url
+  const res = await fetch(fullUrl, options)
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`Request failed: ${res.status} — ${body}`)
@@ -20,7 +25,7 @@ async function fetchJson(url, options = {}) {
 
 async function loadWatchlist() {
   try {
-    const list = await fetchJson("http://localhost:3000/api/watchlist", {
+    const list = await fetchJson("/api/watchlist", {
       headers: { Authorization: `Bearer ${token}` }
     })
 
@@ -91,7 +96,7 @@ async function loadWatchlist() {
 async function toggleWatched(tmdbId) {
   try {
     const response = await fetchJson(
-      `http://localhost:3000/api/watchlist/watched/${tmdbId}`,
+      `/api/watchlist/watched/${tmdbId}`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -105,7 +110,7 @@ async function toggleWatched(tmdbId) {
 
 async function removeMovie(tmdbId) {
   try {
-    await fetchJson(`http://localhost:3000/api/watchlist/remove/${tmdbId}`, {
+    await fetchJson(`/api/watchlist/remove/${tmdbId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     })
