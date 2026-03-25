@@ -388,13 +388,23 @@ function renderReviewList(reviews, title) {
 
   return reviews
     .map((review) => {
+      // Format date properly
+      const reviewDate = new Date(review.created_at || review.createdAt || new Date())
+      const formattedDate = reviewDate.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+
       return `
         <div class="card">
           <div class="card-body">
             <h3>${review.author || review.username || "Anonymous"}</h3>
-            <p>${review.content || review.reviewText}</p>
+            <p>${review.content || review.review_text || review.reviewText || "No text provided"}</p>
             <p class="rating">Rating: <span>${review.rating || "—"}</span></p>
-            <p class="muted">${new Date(review.created_at || review.createdAt || review.updatedAt || Date.now()).toLocaleString()}</p>
+            <p class="muted">${formattedDate}</p>
           </div>
         </div>
       `
