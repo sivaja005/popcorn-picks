@@ -1,5 +1,9 @@
 const token = localStorage.getItem("token")
 
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000'
+  : 'https://popcorn-picks-backend.onrender.com'
+
 function requireAuth() {
   if (!token) {
     window.location.href = "login.html"
@@ -36,7 +40,8 @@ function clearMessage() {
 }
 
 async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options)
+  const fullUrl = url.startsWith('http') ? url : API_BASE_URL + url
+  const res = await fetch(fullUrl, options)
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`Request failed: ${res.status} — ${body}`)
