@@ -2,6 +2,10 @@ const params = new URLSearchParams(window.location.search)
 const movieId = params.get("id")
 
 const token = localStorage.getItem("token")
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000'
+  : 'https://popcorn-picks-backend.onrender.com'
+
 console.log("🔍 Token loaded:", token ? "✅ Present" : "❌ Missing")
 console.log("🎬 Movie ID from URL:", movieId)
 
@@ -19,7 +23,8 @@ function requireAuth() {
 }
 
 async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options)
+  const fullUrl = url.startsWith('http') ? url : API_BASE_URL + url
+  const res = await fetch(fullUrl, options)
   if (!res.ok) {
     const body = await res.text()
     console.error(`❌ API Error - ${res.status}:`, body)

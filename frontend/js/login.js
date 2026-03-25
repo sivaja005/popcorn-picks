@@ -1,3 +1,7 @@
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000'
+  : 'https://popcorn-picks-backend.onrender.com'
+
 async function login() {
   const email = document.getElementById("email").value.trim()
   const password = document.getElementById("password").value
@@ -10,7 +14,7 @@ async function login() {
     return
   }
 
-  const res = await fetch("http://localhost:3000/api/auth/login", {
+  const res = await fetch(API_BASE_URL + "/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
