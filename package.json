@@ -1,0 +1,11 @@
+{
+  "name": "popcorn-picks",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "postinstall": "cd backend ; npm install",
+    "start": "cd backend ; npm start",
+    "build": "cd backend ; npm install"
+  }
+}
