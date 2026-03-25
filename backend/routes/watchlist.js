@@ -3,12 +3,19 @@ const router = express.Router()
 
 const auth = require("../middleware/authMiddleware")
 const User = require("../models/User")
+const { supabase } = require("../db")
 
 // GET WATCHLIST
 router.get("/", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
-    return res.json(user ? user.watchlist : [])
+    const { data: watchlist, error } = await supabase
+      .from("watchlist")
+      .select("*")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return res.json(watchlist || [])
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: "Server error" })
@@ -19,19 +26,37 @@ router.get("/", auth, async (req, res) => {
 router.post("/add", auth, async (req, res) => {
   try {
     const { tmdbId, title, poster } = req.body
-    const user = await User.findById(req.user.id)
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" })
+    
+    if (!tmdbId || !title) {
+      return res.status(400).json({ message: "Missing required fields" })
     }
 
-    const exists = user.watchlist.find((m) => m.tmdbId === tmdbId)
+    // Check if already exists
+    const { data: exists, error: checkError } = await supabase
+      .from("watchlist")
+      .select("id")
+      .eq("user_id", req.user.id)
+      .eq("tmdb_id", tmdbId)
+      .single()
+
     if (exists) {
       return res.json({ message: "Already added" })
     }
 
-    user.watchlist.push({ tmdbId, title, poster, watched: false })
-    await user.save()
+    const { data, error } = await supabase
+      .from("watchlist")
+      .insert([
+        {
+          user_id: req.user.id,
+          tmdb_id: tmdbId,
+          title,
+          poster: poster || null,
+          watched: false
+        }
+      ])
+      .select()
+
+    if (error) throw error
     res.json({ message: "Added to watchlist" })
   } catch (err) {
     console.error(err)
@@ -42,20 +67,30 @@ router.post("/add", auth, async (req, res) => {
 // TOGGLE WATCHED STATUS
 router.post("/watched/:tmdbId", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
+    const tmdbId = Number(req.params.tmdbId)
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" })
-    }
+    // Get current watched status
+    const { data: movie, error: getError } = await supabase
+      .from("watchlist")
+      .select("watched")
+      .eq("user_id", req.user.id)
+      .eq("tmdb_id", tmdbId)
+      .single()
 
-    const movie = user.watchlist.find((m) => m.tmdbId === Number(req.params.tmdbId))
-    if (!movie) {
+    if (getError || !movie) {
       return res.status(404).json({ message: "Movie not in watchlist" })
     }
 
-    movie.watched = !movie.watched
-    await user.save()
-    res.json({ watched: movie.watched })
+    // Toggle watched status
+    const { data: updated, error: updateError } = await supabase
+      .from("watchlist")
+      .update({ watched: !movie.watched })
+      .eq("user_id", req.user.id)
+      .eq("tmdb_id", tmdbId)
+      .select()
+
+    if (updateError) throw updateError
+    res.json({ watched: updated[0].watched })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: "Server error" })
@@ -65,17 +100,15 @@ router.post("/watched/:tmdbId", auth, async (req, res) => {
 // REMOVE MOVIE
 router.delete("/remove/:tmdbId", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
+    const tmdbId = Number(req.params.tmdbId)
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" })
-    }
+    const { error } = await supabase
+      .from("watchlist")
+      .delete()
+      .eq("user_id", req.user.id)
+      .eq("tmdb_id", tmdbId)
 
-    user.watchlist = user.watchlist.filter(
-      (movie) => movie.tmdbId !== Number(req.params.tmdbId)
-    )
-
-    await user.save()
+    if (error) throw error
     res.json({ message: "Removed from watchlist" })
   } catch (err) {
     console.error(err)

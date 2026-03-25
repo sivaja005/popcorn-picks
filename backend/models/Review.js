@@ -1,25 +1,85 @@
-const mongoose = require("mongoose")
+const { supabase } = require("../db")
 
-const ReviewSchema = new mongoose.Schema({
+class Review {
+  // Create a new review
+  static async create(reviewData) {
+    const { tmdbId, userId, username, rating, reviewText } = reviewData
 
-tmdbId: Number,
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert([
+        {
+          tmdb_id: tmdbId,
+          user_id: userId,
+          username,
+          rating,
+          review_text: reviewText
+        }
+      ])
+      .select()
 
-userId: {
-type: mongoose.Schema.Types.ObjectId,
-ref: "User"
-},
+    if (error) throw error
+    return data[0]
+  }
 
-username: String,
+  // Get all reviews for a movie
+  static async getByTmdbId(tmdbId) {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("tmdb_id", tmdbId)
+      .order("created_at", { ascending: false })
 
-rating: Number,
+    if (error) throw error
+    return data || []
+  }
 
-reviewText: String,
+  // Get all reviews by a user
+  static async getByUserId(userId) {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
 
-createdAt: {
-type: Date,
-default: Date.now
+    if (error) throw error
+    return data || []
+  }
+
+  // Get a specific review
+  static async findById(reviewId) {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("id", reviewId)
+      .single()
+
+    if (error && error.code !== "PGRST116") throw error
+    return data || null
+  }
+
+  // Delete a review
+  static async deleteReview(reviewId) {
+    const { error } = await supabase
+      .from("reviews")
+      .delete()
+      .eq("id", reviewId)
+
+    if (error) throw error
+    return true
+  }
+
+  // Update a review
+  static async updateReview(reviewId, updateData) {
+    const { data, error } = await supabase
+      .from("reviews")
+      .update(updateData)
+      .eq("id", reviewId)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  }
 }
 
-})
-
-module.exports = mongoose.model("Review", ReviewSchema)
+module.exports = Review

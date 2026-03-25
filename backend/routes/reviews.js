@@ -4,6 +4,7 @@ const router = express.Router()
 const auth = require("../middleware/authMiddleware")
 const Review = require("../models/Review")
 const User = require("../models/User")
+const { supabase } = require("../db")
 
 // ADD / UPDATE REVIEW
 router.post("/add", auth, async (req, res) => {
@@ -21,21 +22,31 @@ router.post("/add", auth, async (req, res) => {
     }
 
     // Check if review already exists
-    const existing = await Review.findOne({
-      tmdbId: Number(tmdbId),
-      userId: req.user.id
-    })
+    const { data: existing, error: checkError } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("tmdb_id", Number(tmdbId))
+      .eq("user_id", req.user.id)
+      .single()
 
     if (existing) {
-      existing.rating = rating
-      existing.reviewText = reviewText
-      existing.createdAt = new Date()
-      await existing.save()
+      // Update existing review
+      const { data: updated, error: updateError } = await supabase
+        .from("reviews")
+        .update({
+          rating,
+          review_text: reviewText,
+          created_at: new Date().toISOString()
+        })
+        .eq("id", existing.id)
+        .select()
+
+      if (updateError) throw updateError
       return res.json({ message: "Review updated" })
     }
 
     // Create new review
-    const newReview = new Review({
+    const newReview = await Review.create({
       tmdbId: Number(tmdbId),
       userId: req.user.id,
       username: user.username,
@@ -43,7 +54,6 @@ router.post("/add", auth, async (req, res) => {
       reviewText
     })
 
-    await newReview.save()
     res.json({ message: "Review added" })
   } catch (err) {
     console.error(err)
@@ -54,7 +64,7 @@ router.post("/add", auth, async (req, res) => {
 // GET REVIEWS
 router.get("/:tmdbId", async (req, res) => {
   try {
-    const reviews = await Review.find({ tmdbId: Number(req.params.tmdbId) })
+    const reviews = await Review.getByTmdbId(Number(req.params.tmdbId))
     res.json(reviews)
   } catch (err) {
     console.error(err)

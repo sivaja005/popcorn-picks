@@ -1,8 +1,7 @@
 const express = require("express")
-const bcrypt = require("bcryptjs")
-const jwt = require("jsonwebtoken")
 const User = require("../models/User")
 const auth = require("../middleware/authMiddleware")
+const jwt = require("jsonwebtoken")
 
 const router = express.Router()
 
@@ -26,28 +25,22 @@ router.post("/register", async (req, res) => {
     }
 
     // Check if email already exists
-    const existing = await User.findOne({ email: email.toLowerCase() })
+    const existing = await User.findByEmail(email)
     if (existing) {
       return res.status(400).json({ message: "Email already in use" })
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10)
-    const hashed = await bcrypt.hash(password, salt)
-
     // Create new user
-    const user = new User({
+    const user = await User.create({
       username,
       email: email.toLowerCase(),
-      password: hashed,
-      watchlist: []
+      password,
+      profilePic: ""
     })
-
-    await user.save()
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, username: user.username },
+      { id: user.id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     )
@@ -74,21 +67,21 @@ router.post("/login", async (req, res) => {
     }
 
     // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() })
+    const user = await User.findByEmail(email)
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" })
     }
 
     // Check password
-    const isMatch = await bcrypt.compare(password, user.password)
+    const isMatch = await User.verifyPassword(password, user.password)
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" })
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, username: user.username },
+      { id: user.id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     )
@@ -103,9 +96,14 @@ router.post("/login", async (req, res) => {
 // Get current user profile
 router.get("/me", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("username email profilePic")
+    const user = await User.findById(req.user.id)
     if (!user) return res.status(404).json({ message: "User not found" })
-    res.json(user)
+    
+    res.json({
+      username: user.username,
+      email: user.email,
+      profilePic: user.profile_pic
+    })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: "Server error" })
@@ -120,12 +118,13 @@ router.put("/me", auth, async (req, res) => {
     const user = await User.findById(req.user.id)
     if (!user) return res.status(404).json({ message: "User not found" })
 
-    if (username) user.username = username
-    if (typeof profilePic === "string") user.profilePic = profilePic
+    const updateData = {}
+    if (username) updateData.username = username
+    if (typeof profilePic === "string") updateData.profile_pic = profilePic
 
-    await user.save()
+    const updated = await User.updateProfile(req.user.id, updateData)
 
-    res.json({ username: user.username, profilePic: user.profilePic })
+    res.json({ username: updated.username, profilePic: updated.profile_pic })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: "Server error" })
@@ -143,14 +142,15 @@ router.post("/change-password", auth, async (req, res) => {
     const user = await User.findById(req.user.id)
     if (!user) return res.status(404).json({ message: "User not found" })
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password)
+    const isMatch = await User.verifyPassword(currentPassword, user.password)
     if (!isMatch) {
       return res.status(400).json({ message: "Current password is incorrect" })
     }
 
-    const salt = await bcrypt.genSalt(10)
-    user.password = await bcrypt.hash(newPassword, salt)
-    await user.save()
+    const bcrypt = require("bcryptjs")
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    
+    await User.updateProfile(req.user.id, { password: hashedPassword })
 
     res.json({ message: "Password updated" })
   } catch (err) {
@@ -162,7 +162,16 @@ router.post("/change-password", auth, async (req, res) => {
 // Delete account
 router.delete("/delete", auth, async (req, res) => {
   try {
-    await User.findByIdAndDelete(req.user.id)
+    const { supabase } = require("../db")
+    
+    // Delete user and all related data (cascades automatically)
+    const { error } = await supabase
+      .from("users")
+      .delete()
+      .eq("id", req.user.id)
+
+    if (error) throw error
+    
     res.json({ message: "Account deleted" })
   } catch (err) {
     console.error(err)
