@@ -64,23 +64,23 @@ async function loadWatchlist() {
         <img src="https://image.tmdb.org/t/p/w300${movie.poster}" />
         <div class="card-body">
           <h3>${movie.title}</h3>
-          <button class="${watchedClass} watched-btn" data-id="${movie.tmdbId}">${watchedText}</button>
-          <button class="primary" data-id="${movie.tmdbId}">Remove</button>
+          <button class="${watchedClass} watched-btn" data-id="${movie.tmdb_id}">${watchedText}</button>
+          <button class="primary" data-id="${movie.tmdb_id}">Remove</button>
         </div>
       `
       card.querySelector("img").addEventListener("click", () => {
-        window.location.href = `movie.html?id=${movie.tmdbId}`
+        window.location.href = `movie.html?id=${movie.tmdb_id}`
       })
 
       // Mark as watched button
       card.querySelector(".watched-btn").addEventListener("click", async () => {
-        await toggleWatched(movie.tmdbId)
+        await toggleWatched(movie.tmdb_id)
       })
 
       // Remove button
       const buttons = card.querySelectorAll("button")
       buttons[1].addEventListener("click", async () => {
-        await removeMovie(movie.tmdbId)
+        await removeMovie(movie.tmdb_id)
       })
 
       grid.appendChild(card)
